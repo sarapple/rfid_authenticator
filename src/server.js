@@ -56,7 +56,10 @@ dispatcher.onGet("/set_user", async function(req, res) {
     try {
         const user = req.params.user;
         const identifier = req.params.identifier;
-        result = await contract.setIdentifierForUser({ identifier, user });
+        result = await contract.setIdentifierForUser({
+            identifier: security.encryptWithPublic({ msg: identifier }),
+            user,
+        });
     } catch (err) {
         result = err;
     }
@@ -65,16 +68,35 @@ dispatcher.onGet("/set_user", async function(req, res) {
     res.end(result + '');
 });
 
-dispatcher.onGet("/public_key", async function (req, res) {
-    return security.encryptWithPublic({ msg: 'foo' });
+dispatcher.onGet("/get_public_key", async function (req, res) {
+    let result = await security.encryptWithPublic({ msg: 'foo' });
+
+    res.writeHead(200, {'Content-Type': 'text/plain'});
+    res.end(security.getPublicKey() + '');
 });
 
 dispatcher.onGet("/verify_private", async function(req, res) {
-    if (!req.params.encrypted) {
-        throw new Error('Params: [encrypted] expected');
+    if (!req.params.encrypted || !req.params.user) {
+        throw new Error('Params: [encrypted, user] expected');
     }
 
-    return security.decryptWithPrivate({ encrypted: req.params.encrypted });
+    try {
+        const user = req.params.user;
+
+        let decryptedPayload = await security.decryptWithPrivate({ encrypted: req.params.encrypted });
+        const storage = await contract.getIdentifierByUser({ user });
+        const decryptedComparison = await security.decryptWithPrivate({ encrypted: storage });
+
+        const isVerified = decryptedPayload === decryptedComparison;
+
+        res.writeHead(200, {'Content-Type': 'application/json'});
+        res.end(JSON.stringify(isVerified));
+    } catch (err) {
+        res.writeHead(200, {'Content-Type': 'text/plain'});
+        res.end(err + '');
+
+        return;
+    }
 });
 
 dispatcher.onError(function(req, res) {

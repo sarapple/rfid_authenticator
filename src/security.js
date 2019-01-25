@@ -1,13 +1,16 @@
 'use strict';
 
-var fs = require('fs')
+const fs = require('fs')
   , ursa = require('ursa')
   , config = require('./config');
 
-key = ursa.createPrivateKey(fs.readFileSync(config.privateKeyPath));
-crt = ursa.createPublicKey(fs.readFileSync(config.publicKeyPath));
+const key = ursa.createPrivateKey(fs.readFileSync(config.privateKeyPath));
+const crt = ursa.createPublicKey(fs.readFileSync(config.publicKeyPath));
 
 module.exports = {
+    getPublicKey: () => {
+        return fs.readFileSync(config.publicKeyPath);
+    },
     encryptWithPublic: ({ msg }) => {
         const encrypted = crt.encrypt(msg, 'utf8', 'base64');
 
